@@ -9,7 +9,7 @@ const (
 	BlockVotingStarted = "BLOCK-VOTING-STARTED"
 )
 
-var DoEmitCheckpoints = false
+var DoEmitCheckpoints = true
 
 func EmitCheckpoint(checkpointName string, logValues ...interface{}) {
 	args := []interface{}{"name", checkpointName}

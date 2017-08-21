@@ -229,7 +229,9 @@ func (st *StateTransition) TransitionDb() (ret []byte, requiredGas, usedGas *big
 	var data []byte
 	isPrivate := false
 	publicState := st.state
-	if msg, ok := msg.(PrivateMessage); ok && isQuorum && msg.IsPrivate() {
+	msg2, ok := msg.(PrivateMessage)
+	log.Info("private message", "isPrivate()", msg2.IsPrivate(), "ok", ok)
+	if ok && isQuorum && msg2.IsPrivate() {
 		isPrivate = true
 		data, err = private.P.Receive(st.data)
 		// Increment the public account nonce if:

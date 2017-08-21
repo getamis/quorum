@@ -27,6 +27,9 @@ import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
+	"net/http"
+	"sync"
+
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
@@ -45,8 +48,6 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
-	"net/http"
-	"sync"
 )
 
 const (
@@ -1100,7 +1101,7 @@ func submitTransaction(ctx context.Context, b Backend, tx *types.Transaction, is
 	if isPrivate {
 		tx.SetPrivate()
 	}
-
+	log.Info("submitTransaction", "isPrivate", isPrivate, "to", tx.To())
 	if err := b.SendTx(ctx, tx); err != nil {
 		return common.Hash{}, err
 	}
