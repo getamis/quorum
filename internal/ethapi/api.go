@@ -1101,7 +1101,7 @@ func submitTransaction(ctx context.Context, b Backend, tx *types.Transaction, is
 	if isPrivate {
 		tx.SetPrivate()
 	}
-	log.Info("submitTransaction", "isPrivate", isPrivate, "to", tx.To())
+	log.Info("submitTransaction", "hash", tx.Hash(), "isPrivate", isPrivate, "to", tx.To())
 	if err := b.SendTx(ctx, tx); err != nil {
 		return common.Hash{}, err
 	}

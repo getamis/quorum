@@ -230,7 +230,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, requiredGas, usedGas *big
 	isPrivate := false
 	publicState := st.state
 	msg2, ok := msg.(PrivateMessage)
-	log.Info("private message", "isPrivate()", msg2.IsPrivate(), "ok", ok)
+	log.Info("private message", "isPrivate()", msg2.IsPrivate(), "ok", ok, "from", msg2.From().Hex(), "to", msg2.To().Hex())
 	if ok && isQuorum && msg2.IsPrivate() {
 		isPrivate = true
 		data, err = private.P.Receive(st.data)

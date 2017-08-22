@@ -26,6 +26,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 )
 
@@ -147,6 +148,7 @@ func ApplyTransaction(config *params.ChainConfig, bc *BlockChain, author *common
 	receipt.Bloom = types.CreateBloom(types.Receipts{receipt})
 
 	var privateReceipt *types.Receipt
+	log.Debug("Apply transaction", "hash", tx.Hash(), "isQuorum", config.IsQuorum, "isPrivate", tx.IsPrivate())
 	if config.IsQuorum && tx.IsPrivate() {
 		var privateRoot []byte
 		if config.IsMetropolis(header.Number) {
