@@ -58,6 +58,10 @@ type minter struct {
 	shouldMine       *channels.RingChannel
 	blockTime        time.Duration
 	speculativeChain *speculativeChain
+
+	invalidRaftOrderingChan chan InvalidRaftOrdering
+	chainHeadChan           chan core.ChainHeadEvent
+	txPreChan               chan core.TxPreEvent
 }
 
 func newMinter(config *params.ChainConfig, eth *RaftService, blockTime time.Duration) *minter {
@@ -70,16 +74,17 @@ func newMinter(config *params.ChainConfig, eth *RaftService, blockTime time.Dura
 		shouldMine:       channels.NewRingChannel(1),
 		blockTime:        blockTime,
 		speculativeChain: newSpeculativeChain(),
-	}
-	events := minter.mux.Subscribe(
-		core.ChainHeadEvent{},
-		core.TxPreEvent{},
-		InvalidRaftOrdering{},
-	)
 
+		invalidRaftOrderingChan: make(chan InvalidRaftOrdering),
+		chainHeadChan:           make(chan core.ChainHeadEvent),
+		txPreChan:               make(chan core.TxPreEvent),
+	}
+
+	eth.blockchain.SubscribeChainHeadEvent(minter.chainHeadChan)
+	eth.txPool.SubscribeTxPreEvent(minter.txPreChan)
 	minter.speculativeChain.clear(minter.chain.CurrentBlock())
 
-	go minter.eventLoop(events.Chan())
+	go minter.eventLoop()
 	go minter.mintingLoop()
 
 	return minter
@@ -132,39 +137,37 @@ func (minter *minter) updateSpeculativeChainPerInvalidOrdering(headBlock *types.
 	minter.speculativeChain.unwindFrom(invalidHash, headBlock)
 }
 
-func (minter *minter) eventLoop(events <-chan *event.TypeMuxEvent) {
-	for event := range events {
-		switch ev := event.Data.(type) {
-		case core.ChainHeadEvent:
-			newHeadBlock := ev.Block
+func (minter *minter) eventLoop() {
+	select {
+	case ev := <-minter.chainHeadChan:
+		newHeadBlock := ev.Block
 
-			if atomic.LoadInt32(&minter.minting) == 1 {
-				minter.updateSpeculativeChainPerNewHead(newHeadBlock)
+		if atomic.LoadInt32(&minter.minting) == 1 {
+			minter.updateSpeculativeChainPerNewHead(newHeadBlock)
 
-				//
-				// TODO(bts): not sure if this is the place, but we're going to
-				// want to put an upper limit on our speculative mining chain
-				// length.
-				//
+			//
+			// TODO(bts): not sure if this is the place, but we're going to
+			// want to put an upper limit on our speculative mining chain
+			// length.
+			//
 
-				minter.requestMinting()
-			} else {
-				minter.mu.Lock()
-				minter.speculativeChain.setHead(newHeadBlock)
-				minter.mu.Unlock()
-			}
-
-		case core.TxPreEvent:
-			if atomic.LoadInt32(&minter.minting) == 1 {
-				minter.requestMinting()
-			}
-
-		case InvalidRaftOrdering:
-			headBlock := ev.headBlock
-			invalidBlock := ev.invalidBlock
-
-			minter.updateSpeculativeChainPerInvalidOrdering(headBlock, invalidBlock)
+			minter.requestMinting()
+		} else {
+			minter.mu.Lock()
+			minter.speculativeChain.setHead(newHeadBlock)
+			minter.mu.Unlock()
 		}
+
+	case <-minter.txPreChan:
+		if atomic.LoadInt32(&minter.minting) == 1 {
+			minter.requestMinting()
+		}
+
+	case ev := <-minter.invalidRaftOrderingChan:
+		headBlock := ev.headBlock
+		invalidBlock := ev.invalidBlock
+
+		minter.updateSpeculativeChainPerInvalidOrdering(headBlock, invalidBlock)
 	}
 }
 
