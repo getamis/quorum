@@ -153,7 +153,7 @@ func newWorker(config *params.ChainConfig, engine consensus.Engine, coinbase com
 		fullValidation: false,
 	}
 
-	if !config.IsQuorum {
+	if _, ok := engine.(consensus.Istanbul); ok || !config.IsQuorum {
 		// Subscribe TxPreEvent for tx pool
 		worker.txSub = eth.TxPool().SubscribeTxPreEvent(worker.txCh)
 		// Subscribe events for blockchain
@@ -312,6 +312,7 @@ func (self *worker) wait() {
 				go self.mux.Post(core.NewMinedBlockEvent{Block: block})
 			} else {
 				work.state.CommitTo(self.chainDb, self.config.IsEIP158(block.Number()))
+				work.privateState.CommitTo(self.chainDb, self.config.IsEIP158(block.Number()))
 				stat, err := self.chain.WriteBlock(block)
 				if err != nil {
 					log.Error("Failed writing block to chain", "err", err)
@@ -607,14 +608,20 @@ func (env *Work) commitTransactions(mux *event.TypeMux, txs *types.TransactionsB
 
 func (env *Work) commitTransaction(tx *types.Transaction, bc *core.BlockChain, coinbase common.Address, gp *core.GasPool) (error, []*types.Log) {
 	snap := env.state.Snapshot()
+	privateSnap := env.privateState.Snapshot()
 
-	receipt, _, _, err := core.ApplyTransaction(env.config, bc, &coinbase, gp, env.state, env.privateState, env.header, tx, env.header.GasUsed, vm.Config{})
+	receipt, privateReceipt, _, err := core.ApplyTransaction(env.config, bc, &coinbase, gp, env.state, env.privateState, env.header, tx, env.header.GasUsed, vm.Config{})
 	if err != nil {
 		env.state.RevertToSnapshot(snap)
+		env.privateState.RevertToSnapshot(privateSnap)
 		return err, nil
 	}
 	env.txs = append(env.txs, tx)
 	env.receipts = append(env.receipts, receipt)
 
-	return nil, receipt.Logs
+	logs := receipt.Logs
+	if privateReceipt != nil {
+		logs = append(receipt.Logs, privateReceipt.Logs...)
+	}
+	return nil, logs
 }
