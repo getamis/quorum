@@ -228,6 +228,7 @@ var AppHelpFlagGroups = []flagGroup{
 			utils.IstanbulRequestTimeoutFlag,
 			utils.IstanbulBlockPeriodFlag,
 			utils.IstanbulBlockPauseTimeFlag,
+			utils.IstanbulFaultyModeFlag,
 		},
 	},
 }
